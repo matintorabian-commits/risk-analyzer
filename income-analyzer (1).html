@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Underwriter — Income Statement Risk Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #111111;
+    --panel-2: #161616;
+    --border: #232323;
+    --border-bright: #353535;
+    --text: #ededed;
+    --text-dim: #8a8a8a;
+    --text-faint: #5a5a5a;
+    --accent: #d4ff3a;
+    --accent-dim: #9bbf2a;
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #ef4444;
+    --serif: 'Instrument Serif', serif;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter Tight', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(212, 255, 58, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(212, 255, 58, 0.03) 0%, transparent 50%);
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 32px; }
+
+  /* Header */
+  header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 32px;
+  }
+  .logo { display: flex; align-items: baseline; gap: 12px; }
+  .logo-mark {
+    font-family: var(--serif); font-style: italic; font-size: 32px; color: var(--accent);
+  }
+  .logo-text { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; }
+  .header-meta { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.1em; }
+
+  /* Hero */
+  .hero { margin-bottom: 40px; }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 400; font-size: 56px; line-height: 1.05;
+    letter-spacing: -0.02em; margin-bottom: 12px;
+  }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+  .hero p { font-size: 15px; color: var(--text-dim); max-width: 560px; line-height: 1.5; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1px dashed var(--border-bright); border-radius: 4px; padding: 48px;
+    text-align: center; cursor: pointer; transition: all 0.2s; background: var(--panel);
+    margin-bottom: 24px;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: var(--panel-2); }
+  .upload-zone.dragging { border-color: var(--accent); background: rgba(212, 255, 58, 0.05); }
+  .upload-icon { font-family: var(--serif); font-style: italic; font-size: 48px; color: var(--accent); margin-bottom: 12px; }
+  .upload-text { font-size: 16px; margin-bottom: 6px; }
+  .upload-hint { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+  #file-input { display: none; }
+
+  /* API key */
+  .api-section {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 16px 20px; margin-bottom: 24px;
+  }
+  .api-section label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; }
+  .api-section input {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-family: var(--mono); font-size: 13px; outline: none;
+  }
+  .api-section input::placeholder { color: var(--text-faint); }
+  .api-section .api-help { font-size: 11px; color: var(--text-faint); margin-top: 6px; font-family: var(--mono); }
+  .api-section .api-help a { color: var(--accent-dim); text-decoration: none; }
+  .api-section .api-help a:hover { text-decoration: underline; }
+
+  /* Status */
+  .status-line { font-family: var(--mono); font-size: 12px; color: var(--text-dim); margin: 16px 0; padding-left: 16px; border-left: 2px solid var(--accent); }
+  .error-line { font-family: var(--mono); font-size: 12px; color: var(--red); margin: 16px 0; padding-left: 16px; border-left: 2px solid var(--red); }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; gap: 12px; padding: 20px; }
+  .spinner {
+    width: 14px; height: 14px; border: 2px solid var(--border-bright);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  .results { display: none; }
+  .results.visible { display: block; animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+    color: var(--text-faint); text-transform: uppercase; margin-bottom: 16px;
+  }
+
+  /* Risk score hero */
+  .risk-hero {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 40px; margin-bottom: 40px; position: relative; overflow: hidden;
+  }
+  .risk-hero::before {
+    content: ''; position: absolute; top: 0; right: 0; width: 200px; height: 200px;
+    background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+    opacity: 0.05; transform: translate(30%, -30%);
+  }
+  .risk-score-display { display: flex; flex-direction: column; }
+  .risk-score-number {
+    font-family: var(--serif); font-size: 180px; line-height: 0.9; font-weight: 400;
+    letter-spacing: -0.04em; margin-bottom: 8px;
+  }
+  .risk-score-number em { font-style: italic; }
+  .risk-score-out-of { font-family: var(--mono); font-size: 14px; color: var(--text-dim); margin-bottom: 16px; }
+  .risk-tier {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 6px 12px; border: 1px solid currentColor; display: inline-block; width: fit-content;
+  }
+  .risk-summary { display: flex; flex-direction: column; justify-content: center; }
+  .risk-summary p { font-size: 16px; line-height: 1.6; color: var(--text); margin-bottom: 12px; }
+  .risk-summary p.dim { color: var(--text-dim); font-size: 14px; }
+
+  /* KPI grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); margin-bottom: 40px; border: 1px solid var(--border); }
+  .kpi-card {
+    background: var(--panel); padding: 24px; transition: background 0.2s;
+  }
+  .kpi-card:hover { background: var(--panel-2); }
+  .kpi-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em;
+    color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .kpi-value {
+    font-family: var(--serif); font-size: 36px; font-weight: 400; line-height: 1;
+    letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .kpi-value em { font-style: italic; }
+  .kpi-context { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .kpi-trend { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; }
+  .kpi-trend.up { color: var(--green); }
+  .kpi-trend.down { color: var(--red); }
+  .kpi-trend.flat { color: var(--text-dim); }
+
+  /* Two col */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+  .panel-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 28px;
+  }
+  .panel-card h3 {
+    font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 24px;
+    margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+
+  .insight-list { list-style: none; }
+  .insight-list li {
+    padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+    line-height: 1.6; color: var(--text); display: flex; gap: 12px;
+  }
+  .insight-list li:last-child { border-bottom: none; }
+  .insight-list li::before {
+    content: '→'; color: var(--accent); font-family: var(--mono);
+    flex-shrink: 0;
+  }
+
+  .flag-list li::before { content: '⚠'; color: var(--amber); }
+  .strength-list li::before { content: '✓'; color: var(--green); }
+
+  /* Underwriter notes */
+  .underwriter-section {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 28px; margin-bottom: 40px;
+  }
+  .underwriter-section h3 {
+    font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 28px;
+    margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .underwriter-section p { font-size: 15px; line-height: 1.7; color: var(--text); margin-bottom: 14px; }
+  .underwriter-section p.attribution { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; }
+
+  /* Risk breakdown */
+  .risk-breakdown { display: grid; gap: 12px; }
+  .risk-factor {
+    display: grid; grid-template-columns: 180px 1fr 60px; gap: 16px; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .risk-factor:last-child { border-bottom: none; }
+  .risk-factor-name { font-size: 13px; }
+  .risk-bar-container { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .risk-bar-fill { height: 100%; transition: width 0.6s ease-out; }
+  .risk-factor-score { font-family: var(--mono); font-size: 13px; text-align: right; }
+
+  /* Reset button */
+  .reset-btn {
+    background: transparent; border: 1px solid var(--border-bright); color: var(--text);
+    padding: 10px 20px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.2s; border-radius: 2px;
+  }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Periods table */
+  .periods-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .periods-table th, .periods-table td {
+    padding: 10px 12px; text-align: right; font-family: var(--mono); font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .periods-table th:first-child, .periods-table td:first-child { text-align: left; }
+  .periods-table th {
+    color: var(--text-dim); font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; font-size: 10px;
+  }
+  .periods-table td.label { font-family: var(--sans); font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .container { padding: 16px; }
+    .hero h1 { font-size: 36px; }
+    .risk-hero { grid-template-columns: 1fr; }
+    .risk-score-number { font-size: 120px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .risk-factor { grid-template-columns: 1fr; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <span class="logo-mark">U.</span>
+      <span class="logo-text">Underwriter / Income Statement Analysis</span>
+    </div>
+    <span class="header-meta">v1.0 · INSTITUTIONAL CREDIT FRAMEWORK</span>
+  </header>
+
+  <div class="hero">
+    <h1>Risk-rated <em>credit analysis</em><br>from a single PDF.</h1>
+    <p>Upload an income statement. Get institutional-grade KPIs, underwriter commentary, and a 1–10 risk rating modeled on commercial credit standards.</p>
+  </div>
+
+  <div class="api-section">
+    <label>Anthropic API Key</label>
+    <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="api-help">Stored only in this browser session. Get one at <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> · Required to analyze documents.</div>
+  </div>
+
+  <div class="upload-zone" id="upload-zone">
+    <div class="upload-icon">↑</div>
+    <div class="upload-text">Drop income statement PDF here, or click to browse</div>
+    <div class="upload-hint">Single-period or multi-period · Up to 20 pages</div>
+    <input type="file" id="file-input" accept="application/pdf" />
+  </div>
+
+  <div id="status-area"></div>
+
+  <div class="results" id="results">
+
+    <div class="risk-hero">
+      <div class="risk-score-display">
+        <div class="section-label">Composite Risk Rating</div>
+        <div class="risk-score-number"><em id="risk-score">—</em></div>
+        <div class="risk-score-out-of">/ 10 · 1 = lowest risk · 10 = highest</div>
+        <div class="risk-tier" id="risk-tier">—</div>
+      </div>
+      <div class="risk-summary">
+        <div class="section-label">Underwriter Verdict</div>
+        <p id="risk-headline">—</p>
+        <p class="dim" id="risk-subline">—</p>
+      </div>
+    </div>
+
+    <div class="section-label">Key Performance Indicators</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="two-col">
+      <div class="panel-card">
+        <h3>Strengths</h3>
+        <ul class="insight-list strength-list" id="strengths"></ul>
+      </div>
+      <div class="panel-card">
+        <h3>Red Flags</h3>
+        <ul class="insight-list flag-list" id="flags"></ul>
+      </div>
+    </div>
+
+    <div class="underwriter-section">
+      <h3>Underwriter Commentary</h3>
+      <div id="commentary"></div>
+      <p class="attribution">— Analysis framework: institutional commercial credit standards</p>
+    </div>
+
+    <div class="panel-card" style="margin-bottom: 32px;">
+      <h3>Risk Decomposition</h3>
+      <div class="risk-breakdown" id="risk-breakdown"></div>
+    </div>
+
+    <div class="panel-card" id="periods-section" style="margin-bottom:32px;display:none;">
+      <h3>Period-over-Period</h3>
+      <div id="periods-content"></div>
+    </div>
+
+    <div style="text-align: center; margin: 40px 0;">
+      <button class="reset-btn" onclick="resetApp()">Analyze Another Document</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// Persist API key in session
+const apiKeyInput = document.getElementById('api-key');
+const savedKey = sessionStorage.getItem('anth_key');
+if (savedKey) apiKeyInput.value = savedKey;
+apiKeyInput.addEventListener('change', () => sessionStorage.setItem('anth_key', apiKeyInput.value));
+
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+const statusArea = document.getElementById('status-area');
+const resultsEl = document.getElementById('results');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragging'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragging');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function setStatus(msg, isError) {
+  statusArea.innerHTML = isError
+    ? `<div class="error-line">${msg}</div>`
+    : `<div class="loading"><div class="spinner"></div><div class="status-line" style="border:none;padding:0;margin:0;">${msg}</div></div>`;
+}
+function clearStatus() { statusArea.innerHTML = ''; }
+
+async function handleFile(file) {
+  if (!apiKeyInput.value.trim()) {
+    setStatus('Please enter your Anthropic API key first.', true);
+    return;
+  }
+  if (file.type !== 'application/pdf') {
+    setStatus('Please upload a PDF file.', true);
+    return;
+  }
+
+  resultsEl.classList.remove('visible');
+  setStatus('Reading PDF…');
+
+  try {
+    // Convert PDF to base64 for Claude's document API
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+
+    setStatus('Analyzing income statement with institutional credit framework…');
+
+    const analysis = await analyzeWithClaude(base64, apiKeyInput.value.trim());
+    renderResults(analysis);
+    clearStatus();
+  } catch (err) {
+    console.error(err);
+    setStatus('Error: ' + (err.message || 'Analysis failed. Check your API key and try again.'), true);
+  }
+}
+
+async function analyzeWithClaude(pdfBase64, apiKey) {
+  const systemPrompt = `You are a senior commercial credit underwriter with 20+ years experience at institutional banks (think JPMorgan Commercial Banking, Wells Fargo Credit, BMO Harris). Analyze income statements using rigorous credit standards.
+
+Your output must be VALID JSON ONLY, no markdown, no preamble, matching this exact schema:
+
+{
+  "company_name": "string or 'Not specified'",
+  "period_label": "string describing the period(s) covered",
+  "currency": "USD/EUR/etc",
+  "is_multi_period": boolean,
+  "kpis": [
+    { "label": "Revenue", "value": "$X.XM" or "$X,XXX,XXX", "context": "brief context", "trend": "up|down|flat|n/a" },
+    // 8 total KPIs: Revenue, Gross Margin, Operating Margin, Net Margin, EBITDA Margin (estimated if needed), Revenue Growth (or 'N/A' if single period), Operating Expense Ratio, Interest Coverage (or relevant proxy)
+  ],
+  "risk_score": number 1-10 (one decimal allowed, 1=lowest risk, 10=highest),
+  "risk_tier": "Investment Grade | Pass | Watch | Substandard | Doubtful",
+  "risk_headline": "One sentence verdict (max 20 words)",
+  "risk_subline": "One sentence elaboration explaining the rating",
+  "risk_factors": [
+    { "name": "Profitability", "score": 1-10, "note": "brief" },
+    { "name": "Margin Stability", "score": 1-10, "note": "brief" },
+    { "name": "Revenue Quality", "score": 1-10, "note": "brief" },
+    { "name": "Expense Discipline", "score": 1-10, "note": "brief" },
+    { "name": "Earnings Coverage", "score": 1-10, "note": "brief" },
+    { "name": "Trend Direction", "score": 1-10, "note": "brief" }
+  ],
+  "strengths": ["3-5 bullet strings, each 12-25 words, specific to this statement"],
+  "red_flags": ["3-5 bullet strings, each 12-25 words, specific concerns an underwriter would raise"],
+  "commentary": "3-4 paragraphs of underwriter-style narrative analysis. Reference specific numbers from the statement. Discuss what's strong, what's concerning, and what additional diligence you'd want. Write in the voice of a senior underwriter.",
+  "periods_table": null OR { "headers": ["Metric", "Period 1", "Period 2", ...], "rows": [["Revenue", "$X", "$Y"], ...] }
+}
+
+RISK SCORING METHODOLOGY (institutional credit standards):
+- 1-2: Investment grade. Strong margins (>15% net), positive revenue growth, robust earnings coverage, stable trends. Low default probability.
+- 3-4: Pass. Solid fundamentals with minor concerns. Adequate margins (8-15% net), reasonable trends.
+- 5-6: Watch. Margin compression, declining trends, or thin coverage. Requires enhanced monitoring.
+- 7-8: Substandard. Material weaknesses: negative margins, sharp declines, or covenant pressure expected.
+- 9-10: Doubtful/Loss. Going concern issues, sustained losses, severe deterioration.
+
+If the PDF doesn't contain an income statement, return JSON with risk_score: null and commentary explaining what was found instead.`;
+
+  const userMessage = "Analyze this income statement PDF. Return only the JSON object per the schema.";
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 6000,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 }
+          },
+          { type: 'text', text: userMessage }
+        ]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    let errMsg = `API ${response.status}`;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg = errJson.error?.message || errMsg;
+    } catch(e) {}
+    throw new Error(errMsg);
+  }
+
+  const data = await response.json();
+  const text = data.content.map(b => b.type === 'text' ? b.text : '').join('').trim();
+  const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Try to extract JSON from response
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error('Could not parse analysis response');
+  }
+}
+
+function getRiskColor(score) {
+  if (score == null) return 'var(--text-dim)';
+  if (score <= 2) return 'var(--green)';
+  if (score <= 4) return '#a3e635';
+  if (score <= 6) return 'var(--amber)';
+  if (score <= 8) return '#fb923c';
+  return 'var(--red)';
+}
+
+function renderResults(a) {
+  // Risk score
+  const scoreEl = document.getElementById('risk-score');
+  const tierEl = document.getElementById('risk-tier');
+  const headlineEl = document.getElementById('risk-headline');
+  const sublineEl = document.getElementById('risk-subline');
+
+  if (a.risk_score == null) {
+    scoreEl.textContent = '—';
+    tierEl.textContent = 'Cannot Rate';
+    tierEl.style.color = 'var(--text-dim)';
+  } else {
+    scoreEl.textContent = a.risk_score;
+    scoreEl.style.color = getRiskColor(a.risk_score);
+    tierEl.textContent = a.risk_tier || '—';
+    tierEl.style.color = getRiskColor(a.risk_score);
+  }
+  headlineEl.textContent = a.risk_headline || '—';
+  sublineEl.textContent = a.risk_subline || '';
+
+  // KPIs
+  const kpiGrid = document.getElementById('kpi-grid');
+  kpiGrid.innerHTML = '';
+  (a.kpis || []).forEach(k => {
+    const trendArrow = k.trend === 'up' ? '↑' : k.trend === 'down' ? '↓' : k.trend === 'flat' ? '→' : '';
+    const trendClass = k.trend || 'flat';
+    kpiGrid.innerHTML += `
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value"><em>${k.value}</em></div>
+        <div class="kpi-context">${trendArrow ? `<span class="kpi-trend ${trendClass}">${trendArrow}</span> ` : ''}${k.context || ''}</div>
+      </div>`;
+  });
+
+  // Strengths & flags
+  document.getElementById('strengths').innerHTML = (a.strengths || []).map(s => `<li>${s}</li>`).join('');
+  document.getElementById('flags').innerHTML = (a.red_flags || []).map(f => `<li>${f}</li>`).join('');
+
+  // Commentary
+  const commentary = a.commentary || '';
+  document.getElementById('commentary').innerHTML = commentary.split('\n\n').map(p => `<p>${p}</p>`).join('');
+
+  // Risk breakdown
+  const breakdown = document.getElementById('risk-breakdown');
+  breakdown.innerHTML = '';
+  (a.risk_factors || []).forEach(f => {
+    const color = getRiskColor(f.score);
+    breakdown.innerHTML += `
+      <div class="risk-factor">
+        <div class="risk-factor-name">${f.name}<div style="font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-top:2px">${f.note || ''}</div></div>
+        <div class="risk-bar-container"><div class="risk-bar-fill" style="width:${f.score * 10}%;background:${color};"></div></div>
+        <div class="risk-factor-score" style="color:${color}">${f.score}/10</div>
+      </div>`;
+  });
+
+  // Periods table
+  const periodsSection = document.getElementById('periods-section');
+  if (a.periods_table && a.periods_table.headers && a.periods_table.rows) {
+    periodsSection.style.display = 'block';
+    let html = '<table class="periods-table"><thead><tr>';
+    a.periods_table.headers.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr></thead><tbody>';
+    a.periods_table.rows.forEach(row => {
+      html += '<tr>';
+      row.forEach((cell, i) => html += `<td class="${i===0?'label':''}">${cell}</td>`);
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('periods-content').innerHTML = html;
+  } else {
+    periodsSection.style.display = 'none';
+  }
+
+  resultsEl.classList.add('visible');
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetApp() {
+  resultsEl.classList.remove('visible');
+  fileInput.value = '';
+  clearStatus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
